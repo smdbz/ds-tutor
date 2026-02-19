@@ -7,7 +7,9 @@ authors = [
     { name = "smdbz", email = "github.commodore391@passmail.net" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "pandas>=3.0.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.2,<0.10.0"]
