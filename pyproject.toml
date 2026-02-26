@@ -8,9 +8,20 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "ipykernel>=7.2.0",
+    "ipython>=9.10.0",
+    "kaggle>=2.0.0",
     "pandas>=3.0.1",
+    "plotly>=6.5.2",
+    "scikit-learn>=1.8.0",
 ]
 
 [build-system]
 requires = ["uv_build>=0.9.2,<0.10.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "kagglehub>=1.0.0",
+    "pytest>=9.0.2",
+]

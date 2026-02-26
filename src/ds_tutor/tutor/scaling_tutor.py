@@ -1,4 +1,7 @@
 from .base import BaseTutor
+import pandas as pd
+import numpy as np
+import plotly.express as px
 
 
 class ScalingTutor(BaseTutor):
