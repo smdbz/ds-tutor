@@ -1,14 +1,15 @@
-from .base import BaseTutor
-import pandas as pd
 import numpy as np
+import pandas as pd
 import plotly.express as px
+
+from ..base import BaseTutor
 
 
 class ScalingTutor(BaseTutor):
     def __init__(self):
         super().__init__(name="Feature Scaling Check")
 
-    def check_condition(self, df: pd.DataFrame, pipeline=None) -> bool:
+    def check_condition(self, df: pd.DataFrame) -> bool:
         """Trigger if the max variance of any numeric column is 100x larger than the min variance."""
         numerics = df.select_dtypes(include=[np.number])
         if numerics.empty:

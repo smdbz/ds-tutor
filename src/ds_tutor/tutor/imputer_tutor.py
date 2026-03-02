@@ -1,13 +1,14 @@
-from .base import BaseTutor
 import pandas as pd
 import plotly.express as px
+
+from ..base import BaseTutor
 
 
 class ImputerTutor(BaseTutor):
     def __init__(self):
         super().__init__(name="Missing Value Check")
 
-    def check_condition(self, df: pd.DataFrame, pipeline=None) -> bool:
+    def check_condition(self, df: pd.DataFrame) -> bool:
         """Trigger if the dataframe contains any null values."""
         if df.empty:
             return False
