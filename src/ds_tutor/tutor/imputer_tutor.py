@@ -35,9 +35,10 @@ class ImputerTutor(BaseTutor):
         return """
         ```python
         from sklearn.impute import SimpleImputer
+        from sklearn.pipeline import Pipeline
 
         # Add SimpleImputer to your pipeline
-        pipeline = TutorPipeline([
+        pipeline = Pipeline([
             ('imputer', SimpleImputer(strategy='mean')),  # strategies: 'mean', 'median', 'most_frequent'
             ('model', YourModelHere())
         ])
