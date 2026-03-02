@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
+
 import pandas as pd
-from typing import Optional, Dict
 
 
 class BaseTutor(ABC):
@@ -12,7 +12,7 @@ class BaseTutor(ABC):
         self.name = name
 
     @abstractmethod
-    def check_condition(self, df: pd.DataFrame, pipeline=None) -> bool:
+    def check_condition(self, df: pd.DataFrame) -> bool:
         """Evaluates the data/model to see if this advice is needed."""
         pass
 
