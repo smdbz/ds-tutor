@@ -1,8 +1,14 @@
+from importlib.resources import files
+
 import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PowerTransformer
+
+
+def load_theory(name: str) -> str:
+    return files("ds_tutor.notes").joinpath(f"{name}.md").read_text()
 
 
 # =====================================================================
@@ -70,14 +76,6 @@ class ExperimentConfig:
 # 2. THE PEDAGOGICAL TUTOR (THE "SECOND BRAIN")
 # =====================================================================
 
-class ExploratoryDataTutor:
-    """Diagnoses the data and declaratively updates the config."""
-
-    def __init__(self, context: ProjectContext, config: ExperimentConfig):
-        self.context = context
-        self.config = config
-
-
 class MissingDataTutor:
     """Diagnoses missingness and declaratively updates the config."""
 
@@ -94,8 +92,7 @@ class MissingDataTutor:
             print("[TUTOR TRIGGERED] : Missing Data Detected")
             print("=" * 60)
             print(f"[DIAGNOSIS] Found {missing_count} missing values in training data.")
-            print("[THEORY] MCAR (Missing Completely At Random) assumes the missingness")
-            print("is independent of any observed or unobserved data.")
+            print(f"[THEORY] {load_theory('missing_data')}")
             print("[ACTION] Adding Median SimpleImputer to the declarative configuration.\n")
 
             # Mutate the configuration, not the dataframe!
@@ -107,7 +104,7 @@ class MissingDataTutor:
         print("X_train.isnull().sum().sum()")
 
 
-class SkewnessDataTutor:
+class SkewnessTutor:
     """Diagnoses skewed numeric features and declaratively updates the config."""
 
     def __init__(self, context: ProjectContext, config: ExperimentConfig, threshold: float = 1.0):
@@ -115,7 +112,7 @@ class SkewnessDataTutor:
         self.config = config
         self.threshold = threshold
 
-    def check_for_skewness(self):
+    def check_for_skew(self):
         X_train, _ = self.context.training_data
         numeric_cols = X_train.select_dtypes(include="number").columns
         skew = X_train[numeric_cols].skew().abs()
@@ -129,12 +126,7 @@ class SkewnessDataTutor:
             for col, val in skewed_cols.items():
                 print(f"  {col}: skew = {val:.3f}")
             print()
-            print("[THEORY] Skewness measures asymmetry of a distribution.")
-            print("  A skew of 0 is perfectly symmetric (e.g. a Gaussian).")
-            print("  |skew| > 1 indicates heavy tails that can distort linear")
-            print("  models and distance-based algorithms (KNN, SVM, PCA).")
-            print("  Tree-based models (RandomForest, XGBoost) are invariant")
-            print("  to monotonic transformations and do NOT need this step.")
+            print(f"[THEORY] {load_theory('skewness')}")
             print()
             print("[GOTCHA] PowerTransformer requires all values to be finite.")
             print("  Run MissingDataTutor BEFORE SkewnessDataTutor so the")
