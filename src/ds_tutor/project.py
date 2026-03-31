@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import PowerTransformer
 
 
 # =====================================================================
@@ -104,6 +105,50 @@ class MissingDataTutor:
 
     def print_pandas(self):
         print("X_train.isnull().sum().sum()")
+
+
+class SkewnessDataTutor:
+    """Diagnoses skewed numeric features and declaratively updates the config."""
+
+    def __init__(self, context: ProjectContext, config: ExperimentConfig, threshold: float = 1.0):
+        self.context = context
+        self.config = config
+        self.threshold = threshold
+
+    def check_for_skewness(self):
+        X_train, _ = self.context.training_data
+        numeric_cols = X_train.select_dtypes(include="number").columns
+        skew = X_train[numeric_cols].skew().abs()
+        skewed_cols = skew[skew > self.threshold].sort_values(ascending=False)
+
+        if not skewed_cols.empty:
+            print("=" * 60)
+            print("[TUTOR TRIGGERED] : Skewed Features Detected")
+            print("=" * 60)
+            print(f"[DIAGNOSIS] {len(skewed_cols)} feature(s) exceed |skew| > {self.threshold}:")
+            for col, val in skewed_cols.items():
+                print(f"  {col}: skew = {val:.3f}")
+            print()
+            print("[THEORY] Skewness measures asymmetry of a distribution.")
+            print("  A skew of 0 is perfectly symmetric (e.g. a Gaussian).")
+            print("  |skew| > 1 indicates heavy tails that can distort linear")
+            print("  models and distance-based algorithms (KNN, SVM, PCA).")
+            print("  Tree-based models (RandomForest, XGBoost) are invariant")
+            print("  to monotonic transformations and do NOT need this step.")
+            print()
+            print("[GOTCHA] PowerTransformer requires all values to be finite.")
+            print("  Run MissingDataTutor BEFORE SkewnessDataTutor so the")
+            print("  imputer is added to the pipeline first.")
+            print()
+            print("[ACTION] Adding Yeo-Johnson PowerTransformer to the declarative configuration.\n")
+
+            # Mutate the configuration, not the dataframe!
+            self.config.add_step("power_transformer", PowerTransformer(method="yeo-johnson"))
+        else:
+            print(f"[TUTOR] No features exceed |skew| > {self.threshold}. Passing.")
+
+    def print_pandas(self):
+        print("X_train.select_dtypes(include='number').skew().abs()")
 
 
 # =====================================================================
