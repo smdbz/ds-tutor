@@ -1,7 +1,7 @@
 [project]
 name = "ds-tutor"
 version = "0.1.0"
-description = "Interactive Data Science tutor helps to guide sklearn projects."
+description = "Interactive Data Science tutor helps to guide sklearn projects. This project is for people that are happy coding but would like reminders on the mathemtics behind certain data science processes."
 readme = "README.md"
 authors = [
     { name = "smdbz", email = "github.commodore391@passmail.net" }
@@ -27,3 +27,6 @@ dev = [
     "kagglehub>=1.0.0",
     "pytest>=9.0.2",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ds_tutor"]
