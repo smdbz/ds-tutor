@@ -76,6 +76,23 @@ class ExperimentConfig:
 # 2. THE PEDAGOGICAL TUTOR (THE "SECOND BRAIN")
 # =====================================================================
 
+class ExploratoryDataAnalysisTutor:
+    """Diagnoses and visualizes the data."""
+
+    def __init__(self, context: ProjectContext, config: ExperimentConfig):
+        self.context = context
+        self.config = config
+        self._tutors: list = []
+
+    def add_tutor(self, tutor, **kwargs):
+        tutor = tutor(self.context, self.config, **kwargs)
+        self._tutors.append(tutor)
+
+    def teach_me(self):
+        for tutor in self._tutors:
+            tutor.teach_me()
+
+
 class MissingDataTutor:
     """Diagnoses missingness and declaratively updates the config."""
 
@@ -83,7 +100,7 @@ class MissingDataTutor:
         self.context = context
         self.config = config
 
-    def check_for_missing_data(self):
+    def teach_me(self):
         X_train, _ = self.context.training_data
         missing_count = X_train.isnull().sum().sum()
 
@@ -112,7 +129,7 @@ class SkewnessTutor:
         self.config = config
         self.threshold = threshold
 
-    def check_for_skew(self):
+    def teach_me(self):
         X_train, _ = self.context.training_data
         numeric_cols = X_train.select_dtypes(include="number").columns
         skew = X_train[numeric_cols].skew().abs()
