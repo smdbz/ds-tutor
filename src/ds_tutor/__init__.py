@@ -1,3 +1,5 @@
-from .project import ProjectContext, ExperimentConfig, MissingDataTutor, SkewnessTutor, PipelineRunner
+from .project import ProjectContext, Experiment, ExperimentResults, MissingDataTutor, SkewnessTutor, \
+    ExploratoryDataAnalysisTutor
 
-__all__ = ["ProjectContext", "ExperimentConfig", "MissingDataTutor", "SkewnessTutor", "PipelineRunner"]
+__all__ = ["ProjectContext", "Experiment", "ExperimentResults", "MissingDataTutor", "SkewnessTutor",
+           "ExploratoryDataAnalysisTutor"]

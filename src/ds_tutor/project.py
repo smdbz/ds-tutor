@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from importlib.resources import files
 
 import pandas as pd
@@ -16,7 +17,8 @@ def load_theory(name: str) -> str:
 # =====================================================================
 
 class ProjectContext:
-    """The immutable environment. Enforces causality and prevents data leakage."""
+    """The immutable environment. Enforces causality and prevents data leakage. A project is one dataset that will be
+     experimented with."""
 
     def __init__(self, name: str, df: pd.DataFrame, target_col: str):
         self.name = name
@@ -47,29 +49,78 @@ class ProjectContext:
         return self._X_train.copy(), self._y_train.copy()
 
 
-class ExperimentConfig:
-    """The declarative state machine."""
+@dataclass
+class ExperimentResults:
+    """The results of a completed experiment."""
+    cv_scores: list[float] = field(default_factory=list)
+    mean: float = 0.0
+    std: float = 0.0
+    baseline: float = 0.0
 
-    def __init__(self, name: str, project_context: ProjectContext):
+    def __repr__(self):
+        return (
+            f"ExperimentResults(mean={self.mean:.4f}, std={self.std:.4f}, "
+            f"baseline={self.baseline:.4f}, folds={len(self.cv_scores)})"
+        )
+
+
+class Experiment:
+    """An experiment represents one attempt at training a model. It has a hypothesis, a configuration
+    (preprocessing steps + estimator), and produces results via cross-validation."""
+
+    def __init__(self, name: str, project_context: ProjectContext, hypothesis: str = ""):
         self.name = name
         self.project_context = project_context
+        self.hypothesis = hypothesis
         self.preprocessing_steps = []
         self.estimator = None
         self.is_locked = False
-        self.score = None
+        self.results: ExperimentResults | None = None
 
     def add_step(self, step_name: str, step_obj):
-        if self.is_locked: raise RuntimeError("Config is locked!")
+        if self.is_locked: raise RuntimeError(
+            "Experiment is locked! Create a new experiment to try a different approach.")
         self.preprocessing_steps.append((step_name, step_obj))
 
-    def set_estimator(self, estimator_name: str, estimator_obj):
-        if self.is_locked: raise RuntimeError("Config is locked!")
-        self.estimator = (estimator_name, estimator_obj)
+    def set_estimator(self, estimator_obj):
+        if self.is_locked: raise RuntimeError(
+            "Experiment is locked! Create a new experiment to try a different approach.")
+        self.estimator = estimator_obj
 
-    def lock(self, score: float):
-        self.score = score
+    def run(self, cv: int = 5, scoring: str = "neg_mean_squared_error"):
+        """Run the experiment: build the pipeline and execute cross-validation."""
+        if self.is_locked:
+            raise RuntimeError("Experiment already ran! Create a new experiment to try a different approach.")
+        if self.estimator is None:
+            raise ValueError("No estimator set! Call set_estimator() before running.")
+
+        print(f"[EXPERIMENT] Running '{self.name}'...")
+        if self.hypothesis:
+            print(f"[HYPOTHESIS] {self.hypothesis}")
+
+        X_train, y_train = self.project_context.training_data
+
+        steps = self.preprocessing_steps.copy()
+        steps.append(self.estimator)
+        pipeline = Pipeline(steps)
+
+        print(f"[SYSTEM] Running {cv}-Fold Cross Validation...")
+        scores = cross_val_score(pipeline, X_train, y_train, cv=cv, scoring=scoring)
+        cv_scores = (-scores).tolist()
+
+        self.results = ExperimentResults(
+            cv_scores=cv_scores,
+            mean=sum(cv_scores) / len(cv_scores),
+            std=float(pd.Series(cv_scores).std()),
+            baseline=self.project_context.expected_value,
+        )
+        self._finalize()
+
+    def _finalize(self):
         self.is_locked = True
-        print(f"[SYSTEM] Experiment '{self.name}' LOCKED with CV MSE: {self.score:.4f}")
+        print(
+            f"[RESULT] Experiment '{self.name}' complete — CV MSE: {self.results.mean:.4f} (+/- {self.results.std:.4f})")
+        print(f"[RESULT] Naive baseline E[Y]: {self.results.baseline:.2f}")
 
 
 # =====================================================================
@@ -79,14 +130,18 @@ class ExperimentConfig:
 class ExploratoryDataAnalysisTutor:
     """Diagnoses and visualizes the data."""
 
-    def __init__(self, context: ProjectContext, config: ExperimentConfig):
+    def __init__(self, context: ProjectContext, config: Experiment):
         self.context = context
         self.config = config
-        self._tutors: list = []
+        self._tutors: list = [MissingDataTutor(self.context, self.config), SkewnessTutor(self.context, self.config)]
 
     def add_tutor(self, tutor, **kwargs):
         tutor = tutor(self.context, self.config, **kwargs)
         self._tutors.append(tutor)
+
+    def list_tutors(self):
+        for tutor in self._tutors:
+            print(tutor)
 
     def teach_me(self):
         for tutor in self._tutors:
@@ -96,7 +151,7 @@ class ExploratoryDataAnalysisTutor:
 class MissingDataTutor:
     """Diagnoses missingness and declaratively updates the config."""
 
-    def __init__(self, context: ProjectContext, config: ExperimentConfig):
+    def __init__(self, context: ProjectContext, config: Experiment):
         self.context = context
         self.config = config
 
@@ -124,7 +179,7 @@ class MissingDataTutor:
 class SkewnessTutor:
     """Diagnoses skewed numeric features and declaratively updates the config."""
 
-    def __init__(self, context: ProjectContext, config: ExperimentConfig, threshold: float = 1.0):
+    def __init__(self, context: ProjectContext, config: Experiment, threshold: float = 1.0):
         self.context = context
         self.config = config
         self.threshold = threshold
@@ -160,28 +215,3 @@ class SkewnessTutor:
         print("X_train.select_dtypes(include='number').skew().abs()")
 
 
-# =====================================================================
-# 3. THE EXECUTION ENGINE
-# =====================================================================
-
-class PipelineRunner:
-    """Translates the declarative config into a scikit-learn DAG and executes."""
-
-    def execute(self, context: ProjectContext, config: ExperimentConfig):
-        print(f"[SYSTEM] Building pipeline for '{config.name}'...")
-        X_train, y_train = context.training_data
-
-        # Build the DAG from the config
-        steps = config.preprocessing_steps.copy()
-        if config.estimator is None:
-            raise ValueError("No estimator set in config!")
-        steps.append(config.estimator)
-
-        pipeline = Pipeline(steps)
-
-        # Execute cross-validation (this proves no leakage occurs during imputation)
-        print("[SYSTEM] Running 5-Fold Cross Validation...")
-        scores = cross_val_score(pipeline, X_train, y_train, cv=5, scoring='neg_mean_squared_error')
-        mse = -scores.mean()
-
-        config.lock(mse)
