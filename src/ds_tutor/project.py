@@ -1,11 +1,15 @@
-from dataclasses import dataclass, field
+import logging
 from importlib.resources import files
 
 import pandas as pd
+from sklearn.base import BaseEstimator
+from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PowerTransformer
+
+logger = logging.getLogger(__name__)
 
 
 def load_theory(name: str) -> str:
@@ -16,7 +20,7 @@ def load_theory(name: str) -> str:
 # 1. CORE ML-OPS ARCHITECTURE
 # =====================================================================
 
-class ProjectContext:
+class Project:
     """The immutable environment. Enforces causality and prevents data leakage. A project is one dataset that will be
      experimented with."""
 
@@ -24,103 +28,88 @@ class ProjectContext:
         self.name = name
         self.raw_data = df.copy()
         self.target_col = target_col
-        self._is_initialized = False
-
-    def initialize(self):
-        """
-        Drop the target column and split the data into train/test sets.
-        :return:
-        """
         X = self.raw_data.drop(columns=[self.target_col])
         y = self.raw_data[self.target_col]
         self._X_train, self._X_test, self._y_train, self._y_test = train_test_split(
             X, y, test_size=0.2, random_state=42
         )
         self.expected_value = self._y_train.mean()
-        self._is_initialized = True
-
-        print(f"[SYSTEM] Context Initialized. Target leakage prevented.")
-        print(f"[MATH] Naive Baseline E[Y] = {self.expected_value:.2f}\n")
+        # 2. Use the local logger, not the root logging object
+        logger.info(f"Project '{self.name}' loaded. Training set shape: {self._X_train.shape}")
+        logger.debug(f"Naive Baseline E[Y] established at: {self.expected_value:.4f}")
 
     @property
     def training_data(self):
-        if not self._is_initialized:
-            raise RuntimeError("Must call initialize() first!")
         return self._X_train.copy(), self._y_train.copy()
 
-
-@dataclass
-class ExperimentResults:
-    """The results of a completed experiment."""
-    cv_scores: list[float] = field(default_factory=list)
-    mean: float = 0.0
-    std: float = 0.0
-    baseline: float = 0.0
-
-    def __repr__(self):
-        return (
-            f"ExperimentResults(mean={self.mean:.4f}, std={self.std:.4f}, "
-            f"baseline={self.baseline:.4f}, folds={len(self.cv_scores)})"
-        )
+    def add_step(self):
+        """All trials in the project will share this step."""
+        pass
 
 
 class Experiment:
-    """An experiment represents one attempt at training a model. It has a hypothesis, a configuration
-    (preprocessing steps + estimator), and produces results via cross-validation."""
+    """An Experiment contains one or more Trials."""
 
-    def __init__(self, name: str, project_context: ProjectContext, hypothesis: str = ""):
+    def __init__(self, name: str, project: Project):
         self.name = name
-        self.project_context = project_context
-        self.hypothesis = hypothesis
-        self.preprocessing_steps = []
-        self.estimator = None
-        self.is_locked = False
-        self.results: ExperimentResults | None = None
+        self.project = project
 
-    def add_step(self, step_name: str, step_obj):
-        if self.is_locked: raise RuntimeError(
-            "Experiment is locked! Create a new experiment to try a different approach.")
-        self.preprocessing_steps.append((step_name, step_obj))
+    def leaderboard(self):
+        pass
 
-    def set_estimator(self, estimator_obj):
-        if self.is_locked: raise RuntimeError(
-            "Experiment is locked! Create a new experiment to try a different approach.")
-        self.estimator = estimator_obj
+    def add_step(self):
+        """All trials in the experiment will share this step."""
+        pass
 
-    def run(self, cv: int = 5, scoring: str = "neg_mean_squared_error"):
-        """Run the experiment: build the pipeline and execute cross-validation."""
-        if self.is_locked:
-            raise RuntimeError("Experiment already ran! Create a new experiment to try a different approach.")
-        if self.estimator is None:
-            raise ValueError("No estimator set! Call set_estimator() before running.")
+    def add_trial(self, trial: Trial):
+        pass
 
-        print(f"[EXPERIMENT] Running '{self.name}'...")
-        if self.hypothesis:
-            print(f"[HYPOTHESIS] {self.hypothesis}")
 
-        X_train, y_train = self.project_context.training_data
+class Trial:
+    """A trial represents one run of a cross-validation pipeline. Trial has a score and can be compared to other trials."""
 
-        steps = self.preprocessing_steps.copy()
-        steps.append(self.estimator)
-        pipeline = Pipeline(steps)
+    def __init__(self, name: str, project: Project, experiment: Experiment):
+        self.name = name
+        self.project = project
+        self.experiment = experiment
+        self.score = None
 
-        print(f"[SYSTEM] Running {cv}-Fold Cross Validation...")
-        scores = cross_val_score(pipeline, X_train, y_train, cv=cv, scoring=scoring)
-        cv_scores = (-scores).tolist()
+        self.numeric_transformers: list[tuple[str, BaseEstimator]] = []
+        self.categorical_transformers: list[tuple[str, BaseEstimator]] = []
+        self.preprocessor = ColumnTransformer(transformers=[self.numeric_transformers + self.categorical_transformers])
 
-        self.results = ExperimentResults(
-            cv_scores=cv_scores,
-            mean=sum(cv_scores) / len(cv_scores),
-            std=float(pd.Series(cv_scores).std()),
-            baseline=self.project_context.expected_value,
-        )
-        self._finalize()
+        self.pipeline_steps = []
+        self.pipeline = Pipeline(steps=self.pipeline_steps)  # empty pipeline
 
-    def _finalize(self):
-        self.is_locked = True
-        print(
-            f"[RESULT] Experiment '{self.name}' complete — CV MSE: {self.results.mean:.4f} (+/- {self.results.std:.4f})")
-        print(f"[RESULT] Naive baseline E[Y]: {self.results.baseline:.2f}")
+    def add_numeric_transformer(self, name: str, transformer: BaseEstimator):
+        self.numeric_transformers.append((name, transformer))
+
+    def preprocessor(self):
+        pass
+
+    def get_data(self):
+        X, y = self.project.training_data
+
+    def add_step(self):
+        pass
+
+    def build_pipeline(self, ):
+        pass
+
+    def fit(self):
+        pass
+
+    def predict(self):
+        pass
+
+    def score(self):
+        pass
+
+    def cross_validate(self):
+        pass
+
+    def report(self):
+        pass
 
 
 # =====================================================================
@@ -130,7 +119,7 @@ class Experiment:
 class ExploratoryDataAnalysisTutor:
     """Diagnoses and visualizes the data."""
 
-    def __init__(self, context: ProjectContext, config: Experiment):
+    def __init__(self, context: Project, config: Experiment):
         self.context = context
         self.config = config
         self._tutors: list = [MissingDataTutor(self.context, self.config), SkewnessTutor(self.context, self.config)]
@@ -151,7 +140,7 @@ class ExploratoryDataAnalysisTutor:
 class MissingDataTutor:
     """Diagnoses missingness and declaratively updates the config."""
 
-    def __init__(self, context: ProjectContext, config: Experiment):
+    def __init__(self, context: Project, config: Experiment):
         self.context = context
         self.config = config
 
@@ -179,7 +168,7 @@ class MissingDataTutor:
 class SkewnessTutor:
     """Diagnoses skewed numeric features and declaratively updates the config."""
 
-    def __init__(self, context: ProjectContext, config: Experiment, threshold: float = 1.0):
+    def __init__(self, context: Project, config: Experiment, threshold: float = 1.0):
         self.context = context
         self.config = config
         self.threshold = threshold
@@ -213,5 +202,3 @@ class SkewnessTutor:
 
     def print_pandas(self):
         print("X_train.select_dtypes(include='number').skew().abs()")
-
-

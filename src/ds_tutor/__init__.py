@@ -1,5 +1,7 @@
-from .project import ProjectContext, Experiment, ExperimentResults, MissingDataTutor, SkewnessTutor, \
+from .project import Project, Experiment, MissingDataTutor, SkewnessTutor, \
     ExploratoryDataAnalysisTutor
 
-__all__ = ["ProjectContext", "Experiment", "ExperimentResults", "MissingDataTutor", "SkewnessTutor",
-           "ExploratoryDataAnalysisTutor"]
+from .utils.utils import kaggle_dataset
+
+__all__ = ["Project", "Experiment", "MissingDataTutor", "SkewnessTutor",
+           "ExploratoryDataAnalysisTutor", "kaggle_dataset"]
