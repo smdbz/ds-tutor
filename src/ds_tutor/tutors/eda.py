@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from typing import Protocol
 
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import PowerTransformer
 
-from ds_tutor.core import Experiment, Project, detect_text_columns
+from ds_tutor.experiment import Experiment
+from ds_tutor.project import Project
 from ds_tutor.theory import load_theory
 
 
@@ -36,7 +36,6 @@ class ExploratoryDataAnalysisTutor:
         self._tutors: list[SupportsTeachMe] = [
             MissingDataTutor(self.context, self.config),
             SkewnessTutor(self.context, self.config),
-            TextDataTutor(self.context, self.config),
         ]
         self._last_results: list[TutorResult] = []
 
@@ -171,69 +170,6 @@ class SkewnessTutor:
             triggered=True,
             diagnosis=f"{len(details)} feature(s) exceeded |skew| > {self.threshold}.",
             action="Added Yeo-Johnson power transform (`PowerTransformer(method='yeo-johnson')`).",
-            theory=theory,
-            details=details,
-        )
-
-
-class TextDataTutor:
-    """Adds TF-IDF preprocessing when free-form text features are detected."""
-
-    def __init__(
-        self,
-        context: Project,
-        config: Experiment,
-        max_features: int = 5000,
-        ngram_range: tuple[int, int] = (1, 2),
-    ):
-        self.context = context
-        self.config = config
-        self.max_features = max_features
-        self.ngram_range = ngram_range
-
-    def teach_me(self) -> TutorResult:
-        X_train, _ = self.context.training_data
-        text_cols = detect_text_columns(X_train)
-        theory = load_theory("text_data")
-
-        if not text_cols:
-            return TutorResult(
-                tutor_name=type(self).__name__,
-                title="Text Data",
-                triggered=False,
-                diagnosis="No free-form text columns detected.",
-                action="No text preprocessing step added.",
-                theory=theory,
-                details=None,
-            )
-
-        self.config.add_text_step(
-            "tfidf",
-            TfidfVectorizer(max_features=self.max_features, ngram_range=self.ngram_range),
-        )
-        self.config.add_theory(
-            "TextDataTutor: Added TF-IDF vectorization for detected text columns."
-        )
-        self.config.add_theory(theory)
-
-        details = pd.DataFrame(
-            {
-                "feature": text_cols,
-                "avg_char_length": [
-                    float(X_train[col].dropna().astype(str).str.len().mean() or 0.0) for col in text_cols
-                ],
-            }
-        )
-
-        return TutorResult(
-            tutor_name=type(self).__name__,
-            title="Text Data",
-            triggered=True,
-            diagnosis=f"Detected {len(text_cols)} text feature(s): {', '.join(text_cols)}.",
-            action=(
-                "Added text TF-IDF step "
-                f"(`TfidfVectorizer(max_features={self.max_features}, ngram_range={self.ngram_range})`)."
-            ),
             theory=theory,
             details=details,
         )

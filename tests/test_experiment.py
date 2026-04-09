@@ -19,17 +19,6 @@ def _classification_df(rows: int = 120) -> pd.DataFrame:
     return pd.DataFrame({"x1": x1, "x2": x2, "target": y})
 
 
-def _text_df(rows: int = 80) -> pd.DataFrame:
-    rng = np.random.default_rng(7)
-    level = rng.integers(0, 2, rows)
-    notes = [
-        "soil moisture is low and wind is high" if val == 1 else "adequate moisture and mild weather"
-        for val in level
-    ]
-    rain = rng.normal(10, 2, rows)
-    return pd.DataFrame({"note": notes, "rain": rain, "target": level})
-
-
 def test_experiment_runs_multi_model_search_and_stores_results():
     df = _classification_df()
     project = Project(name="demo", target_col="target", df=df)
@@ -61,26 +50,11 @@ def test_tutors_append_preprocessing_steps_and_theory_log():
     results = tutor.teach_me()
     experiment.run()
 
-    assert len(results) == 3
+    assert len(results) == 2
     assert all(result.title for result in results)
     assert any(step_name == "imputer" for step_name, _ in experiment._effective_numeric_steps())
     assert any(step_name == "power_transformer" for step_name, _ in experiment._effective_numeric_steps())
     assert len(experiment.theory_log) >= 2
-
-
-def test_text_data_tutor_adds_text_pipeline_step():
-    df = _text_df()
-    project = Project(name="text", target_col="target", df=df)
-    experiment = Experiment(name="text-search", project=project, cv=3)
-    experiment.add_model("logreg", LogisticRegression(max_iter=2000), {"C": [1.0]})
-
-    tutor = ExploratoryDataAnalysisTutor(project, experiment)
-    results = tutor.teach_me()
-    experiment.run()
-
-    text_result = next(result for result in results if result.title == "Text Data")
-    assert text_result.triggered is True
-    assert any(step_name == "tfidf" for step_name, _ in experiment._effective_text_steps())
 
 
 def test_experiment_supports_categorical_pipeline_steps():

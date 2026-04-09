@@ -1,0 +1,15 @@
+- project context
+  - project data
+    - train test split
+  - project tutor (placeholder this should feed into the project pipeline)
+  - project pipeline
+      - experiment1
+        - experiment1 tutor (placeholder this should feed into the experiment pipeline)
+        - experiment1 pipeline 
+        - experiment1 best model
+      - experiment2
+        - experiment2 tutor (placeholder this should feed into the experiment pipeline)
+        - experiment2 pipeline
+        - experiment2 best model
+- project best model
+- project test score

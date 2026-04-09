@@ -9,7 +9,7 @@ The package is organized around two core objects:
 - `Project`: immutable dataset context and train/test split, plus default pipeline steps shared by experiments.
 - `Experiment`: search plan + results artifact. An experiment can evaluate multiple models and hyperparameter grids, then retain a leaderboard, best pipeline, best params, and scores.
 
-Tutors (e.g. missing data, skewness, text data) inspect the `Project` and declaratively update `Experiment` preprocessing config before execution.
+Tutors (e.g. missing data and skewness) inspect the `Project` and declaratively update `Experiment` preprocessing config before execution.
 
 ## Quickstart
 
